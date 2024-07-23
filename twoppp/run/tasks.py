@@ -8,6 +8,7 @@ from copy import deepcopy
 import datetime
 from typing import List
 import numpy as np
+import h5py
 
 from twoppp import load, utils, TWOPPP_PATH
 from twoppp.register import warping
@@ -1058,12 +1059,121 @@ class SleapTask(Task):
         trial_dirs = get_selected_trials(fly_dict)
 
         prepare_sleap(trial_dirs)
-        run_sleap()
+        camera_num = "5" 
+        run_sleap(camera_num)
         for trial_dir in trial_dirs:
             beh_df = os.path.join(trial_dir, load.PROCESSED_FOLDER, global_params.df3d_df_out_dir)
             beh_df = add_sleap_to_beh_df(trial_dir=trial_dir, beh_df=beh_df, out_dir=beh_df)
         return True
 
+class SleapRLTask(Task):
+    """
+    Task to run simple and fast 2D pose estimation using Sleap 
+    and save results in behaviour dataframe.
+    
+    This version (SleapRL) will run sleap for right side of fly (camera_5)
+    then on left side of fly (camera_1).
+    
+    Please install sleap according to instructions and create a conda environment called 'sleap' to use the capabilities of this module.
+    https://github.com/talmolab/sleap:
+    conda create -y -n sleap -c conda-forge -c nvidia -c sleap -c anaconda sleap
+    in case this does not work, try installing from source:
+    https://sleap.ai/installation.html#conda-from-source 
+
+    TODO: it is necessary to add the sleap model address to the twopp/behavior/run_sleap_multiple_folders.sh script.
+    """
+    def __init__(self, prio: int=0) -> None:
+        super().__init__(prio)
+        self.name = "sleapRL"
+        self.previous_tasks = ["OR", FictracTask(), WheelTask(), DfTask()]
+
+    def test_todo(self, fly_dict: dict) -> bool:
+        trial_dirs_todo = get_selected_trials(fly_dict)
+        found_files = [utils.find_file(os.path.join(trial_dir, "behData", "images"),
+                                    name="sleap_output.h5",
+                                    raise_error=False) for trial_dir in trial_dirs_todo]
+        TODO = any([found_file is None for found_file in found_files])
+        return TODO
+
+    def run(self, fly_dict: dict, params: PreProcessParams=None) -> bool:
+        if not self.wait_for_previous_task(fly_dict):
+            return False
+        else:
+            self.send_status_email(fly_dict)
+            print(f"{time.ctime(time.time())}: starting {self.name} task for fly {fly_dict['dir']}")
+
+        self.params = deepcopy(params) if params is not None else deepcopy(global_params)
+        self.params.overwrite = fly_dict["overwrite"]
+
+        trial_dirs = get_selected_trials(fly_dict)
+        
+        # delete sleap_output.h5 and L/R versions if present
+        for trial_dir in trial_dirs:
+            sleap_output = os.path.join(trial_dir, "behData", "images", "sleap_output.h5")
+            sleap_output_R = os.path.join(trial_dir, "behData", "images", "sleap_output_R.h5")
+            sleap_output_L = os.path.join(trial_dir, "behData", "images", "sleap_output_L.h5") 
+            if os.path.isfile(sleap_output):
+                os.remove(sleap_output)
+            if os.path.isfile(sleap_output_R):
+                os.remove(sleap_output_R)
+            if os.path.isfile(sleap_output_L):
+                os.remove(sleap_output_L)
+	
+	# prepare sleap
+        prepare_sleap(trial_dirs)
+        
+        # run sleap on right side
+        camera_num = "5" 
+        run_sleap(camera_num)        
+        # rename body parts in sleap_output.h5 to add 'R_'
+        for trial_dir in trial_dirs:
+            sleap_output = os.path.join(trial_dir, "behData", "images", "sleap_output.h5")
+            with h5py.File(sleap_output, 'r+') as file:
+                nodes = file['node_names'][:]
+                for i, node in enumerate(nodes):
+                    node_str = node.decode('utf-8')
+                    node_str = 'R_' + node_str
+                    nodes[i] = node_str.encode('utf-8')
+                file['node_names'][:] = nodes
+                    
+        # transfer to df file
+        for trial_dir in trial_dirs:
+            beh_df = os.path.join(trial_dir, load.PROCESSED_FOLDER, global_params.df3d_df_out_dir)
+            beh_df = add_sleap_to_beh_df(trial_dir=trial_dir, beh_df=beh_df, out_dir=beh_df)
+            
+        # rename sleap output file for R side  
+        for trial_dir in trial_dirs:  
+            sleap_output = os.path.join(trial_dir, "behData", "images", "sleap_output.h5")
+            sleap_output_R = os.path.join(trial_dir, "behData", "images", "sleap_output_R.h5")
+            os.rename(sleap_output, sleap_output_R)
+        
+        for trial_dir in trial_dirs:
+            # run sleap on left side
+            camera_num = "1" 
+            run_sleap(camera_num)
+            # rename body parts in sleap_output.h5 to add 'L_'
+            with h5py.File(sleap_output, 'r+') as file:
+                nodes = file['node_names'][:]
+                for i, node in enumerate(nodes):
+                    node_str = node.decode('utf-8')
+                    node_str = 'L_' + node_str
+                    nodes[i] = node_str.encode('utf-8')
+                file['node_names'][:] = nodes
+                
+        # transfer to df file
+        for trial_dir in trial_dirs:
+            beh_df = os.path.join(trial_dir, load.PROCESSED_FOLDER, global_params.df3d_df_out_dir)
+            print(beh_df)
+            beh_df = add_sleap_to_beh_df(trial_dir=trial_dir, beh_df=beh_df, out_dir=beh_df)
+        
+        # rename sleap output file for L side   
+        for trial_dir in trial_dirs: 
+            sleap_output = os.path.join(trial_dir, "behData", "images", "sleap_output.h5")
+            sleap_output_L = os.path.join(trial_dir, "behData", "images", "sleap_output_L.h5")
+            os.rename(sleap_output, sleap_output_L)
+        
+        return True
+        
 class Df3dTask(Task):
     """
     Task to run pose estimation using DeepFly3D and DF3D post processing
@@ -1347,6 +1457,7 @@ task_collection = {
     "fictrac": FictracTask(prio=0),
     "wheel": WheelTask(prio=0),
     "sleap": SleapTask(prio=-2),
+    "sleapRL": SleapRLTask(prio=-2),
     "df3d": Df3dTask(prio=-20),
     "video": VideoTask(prio=-19),
     "laser_stim_process": LaserStimProcessTask(prio=-1),
