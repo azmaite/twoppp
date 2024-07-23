@@ -136,10 +136,10 @@ def postprocess_df3d_trial(trial_dir, overwrite=False, result_prefix=""):
             images_dir = find_file(trial_dir, "images", "images folder")
             if not os.path.isdir(images_dir):
                 raise FileNotFoundError("Could not find 'images' folder.")
-    df3d_dir = os.path.join(images_dir, "df3d")
-    if not os.path.isdir(images_dir):
-        df3d_dir = find_file(images_dir, "df3d", "df3d folder")
-        if not os.path.isdir(images_dir):
+    df3d_dir = os.path.join(trial_dir, "processed", "df3d")
+    if not os.path.isdir(df3d_dir):
+        df3d_dir = find_file(images_dir, "df3d")
+        if not os.path.isdir(df3d_dir):
             raise FileNotFoundError("Could not find 'df3d' folder.")
     try:
         pose_result = find_file(df3d_dir, name="df3d_result*", file_type="df3d result file")
@@ -219,10 +219,10 @@ def get_df3d_dataframe(trial_dir, index_df=None, out_dir=None, add_abdomen=True)
             images_dir = find_file(trial_dir, "images", "images folder")
             if not os.path.isdir(images_dir):
                 raise FileNotFoundError("Could not find 'images' folder.")
-    df3d_dir = os.path.join(images_dir, "df3d")
-    if not os.path.isdir(images_dir):
-        df3d_dir = find_file(images_dir, "df3d", "df3d folder")
-        if not os.path.isdir(images_dir):
+    df3d_dir = os.path.join(trial_dir, "processed", "df3d")
+    if not os.path.isdir(df3d_dir):
+        df3d_dir = find_file(images_dir, "df3d")
+        if not os.path.isdir(df3d_dir):
             raise FileNotFoundError("Could not find 'df3d' folder.")
 
     # read the angles and convert them into an understandable format

@@ -35,7 +35,7 @@ do
                 ffmpeg -i ""$folder"/camera_"$i".mp4" -qscale:v 2 -start_number 0 ""$folder"/camera_"$i"_img_%d.jpg"  < /dev/null
             done
             # run df3d
-	        CUDA_VISIBLE_DEVICES=0 df3d-cli -vv -o $folder --output-folder df3d  # --camera-ids 6 5 4 3 2 1 0
+	        CUDA_VISIBLE_DEVICES=0 df3d-cli -vv -o $folder --output-folder df3d --camera-ids 6 5 4 3 2 1 0
             # CUDA_VISIBLE_DEVICES=1 
             # for first scope: camera order 0, 6, 5, 4, 3, 2, 1
 
