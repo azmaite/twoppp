@@ -1,5 +1,16 @@
 #!/bin/bash
 
+# Check if the number of arguments passed is correct
+if [ "$#" -ne 2 ]; then
+    echo "Usage: $0 input_file camera_file"
+    exit 1
+fi
+
+# Assign arguments to variables
+input_file=$1
+camera_num=$2
+
+
 # make the conda command known to the current shell by performing source /.../conda.sh
 BASE=$(conda info | grep -i 'base environment' | cut -d':' -f 2 | cut -d'(' -f 1 | cut -c2- | rev | cut -c3- | rev)
 BASE="${BASE}/etc/profile.d/conda.sh"
@@ -12,8 +23,12 @@ echo "will activate 'sleap' environment"
 conda activate sleap
 
 # TODO: make this more flexible
-sleap_model="/home/jbraun/projects/twoppp/twoppp/behaviour/sleap_model"
-camera="camera_5.mp4"
+#sleap_model="/home/jbraun/projects/twoppp/twoppp/behaviour/sleap_model"
+sleap_model="/mnt/upramdya_files/AZCORRA_Maite/Other/sleap/new_model_LR/models/240719_180539.single_instance.n=802"
+
+# Construct camera filename based on camera_num
+camera="camera_${camera_num}.mp4"
+
 while read d; do
   f="${d}/${camera}"
   # echo "$f"
