@@ -229,6 +229,7 @@ class TaskManager():
             while self.n_todos:
                 success = self.execute_next_task()
                 if not success:
+                    print('Waiting?')
                     # if all tasks are pending wait before checking from start again
                     time.sleep(self.t_wait_s)
             self.clean_exit = True
