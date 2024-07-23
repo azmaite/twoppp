@@ -153,5 +153,9 @@ documentation/_templates
 # data
 examples/data/*.pkl
 
+# ignore text files where folders to processed are edited constantly
+twoppp/behaviour/sleap_dirs.txt
+twoppp/run/_fly_dirs_to_process_example.txt
+
 # Mac
 **.DS_Store
