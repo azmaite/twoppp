@@ -29,17 +29,18 @@ def prepare_sleap(trial_dirs, overwrite=True):
         for trial_dir in trial_dirs:
             images_dir = os.path.join(trial_dir, "images")
             if not os.path.isdir(images_dir):
+                beh_dir = os.path.join(trial_dir, "behData")
                 images_dir = os.path.join(trial_dir, "behData", "images")
                 # if not os.path.isdir(images_dir):
                 #     images_dir = find_file(trial_dir, "images", "images folder")
                 if not os.path.isdir(images_dir):
                     raise FileNotFoundError("Could not find 'images' folder.")
-            sleap_result_exists = len(glob.glob(os.path.join(images_dir, "sleap_output.h5")))
+            sleap_result_exists = len(glob.glob(os.path.join(beh_dir, "sleap_output.h5")))
             if overwrite or not sleap_result_exists:
                 f.write(images_dir + "\n")
             if overwrite:
-                os.system(f"mv {glob.glob(os.path.join(images_dir, 'sleap_output.h5'))} {os.path.join(images_dir, 'old_sleap_output.h5')}")
-def run_sleap():
+                os.system(f"mv {glob.glob(os.path.join(beh_dir, 'sleap_output.h5'))} {os.path.join(beh_dir, 'old_sleap_output.h5')}")
+def run_sleap(camera_num):
     """
     run sleap shell command using os.system()
     """
@@ -47,8 +48,12 @@ def run_sleap():
         # os.chdir(os.path.dirname(os.path.abspath(__file__)))
         # os.system("pwd")
         # os.system("./run_sleap_multiple_folders.sh sleap_dirs.txt")
-        subprocess.run(["bash", os.path.join(os.path.dirname(os.path.abspath(__file__)), "run_sleap_multiple_folders.sh"),
-                        os.path.join(os.path.dirname(os.path.abspath(__file__)), "sleap_dirs.txt")])
+        #subprocess.run(["bash", os.path.join(os.path.dirname(os.path.abspath(__file__)), "run_sleap_multiple_folders.sh"), os.path.join(os.path.dirname(os.path.abspath(__file__)), "sleap_dirs.txt")])
+        script_path = os.path.join(os.path.dirname(os.path.abspath(__file__)), "run_sleap_multiple_folders.sh")
+        input_file = os.path.join(os.path.dirname(os.path.abspath(__file__)), "sleap_dirs.txt")
+
+        # Run the shell script with subprocess
+        subprocess.run(["bash", script_path, input_file, camera_num])
 
 
 def fill_nans_with_previous(array):
@@ -114,46 +119,57 @@ def add_sleap_to_beh_df(trial_dir, beh_df, out_dir=None):
     assert n_samples == len(beh_df)
     assert n_dim == 2
 
-    i_neck = node_names.index("neck")
-    neck_fix = np.median(locations[:,i_neck,:], axis=0)
-
-    for i_k, keypoint in enumerate(node_names):
-        for i_d, (d, neck_d) in enumerate(zip(["x","y"], neck_fix)):
-            beh_df[f"{keypoint}_{d}"] = locations[:,i_k, i_d]
-            beh_df[f"{keypoint}_{d}_rel_neck"] = locations[:,i_k, i_d] - neck_d
-
-    i_coxa = node_names.index("frcofe")
-    coxa_fix = np.median(locations[:,i_coxa,:], axis=0)
-    i_frtita = node_names.index("frtita")
-    beh_df["frleg_height"] = locations[:,i_frtita,1] - coxa_fix[1]
-
-    i_frfeti = node_names.index("frfeti")
-    beh_df["frtita_neck_dist"] = np.sqrt((locations[:,i_frtita,0] - neck_fix[0])**2 + (locations[:,i_frtita,1] - neck_fix[1])**2)
-    beh_df["frfeti_neck_dist"] = np.sqrt((locations[:,i_frfeti,0] - neck_fix[0])**2 + (locations[:,i_frfeti,1] - neck_fix[1])**2)
-
-    i_anus = node_names.index("anus")
-    i_ovum = node_names.index("ovum")
-    i_stripe = node_names.index("stripe4")
-    beh_df["anus_dist"] = np.sqrt(np.sum(np.square(locations[:,i_anus]-locations[:,i_stripe]), axis=-1))
-    beh_df["ovum_dist"] = np.sqrt(np.sum(np.square(locations[:,i_ovum]-locations[:,i_stripe]), axis=-1))
-
-    # compute angles of frontleg
-    # frfeti, coxa, neck -> femur angle
-    beh_df["ang_frfemur"] = get_angle(locations[:,i_frfeti], coxa_fix, neck_fix)
-    # coxa, frfeti, frtita -> tibia angle
-    beh_df["ang_frtibia"] = get_angle(coxa_fix, locations[:,i_frfeti], locations[:,i_frtita])
-    # neck, coxa, frfeti, frtita -> tibia/neck angle
-    beh_df["ang_frtibia_neck"] = get_angle(locations[:,i_frtita], coxa_fix, neck_fix)
-    # compute butt angle
-    beh_df["ang_abd"] = get_angle(locations[:,i_anus], locations[:,i_stripe], coxa_fix)
-
-    # compute leg motion energy
-    i_mrtita = node_names.index("mrtita")
-    i_hrtita = node_names.index("hrtita")
-    beh_df["mef_tita"] = joint_motionenergy(locations[:,i_frtita,0], locations[:,i_frtita,1])
-    beh_df["mem_tita"] = joint_motionenergy(locations[:,i_mrtita,0], locations[:,i_mrtita,1])
-    beh_df["meh_tita"] = joint_motionenergy(locations[:,i_hrtita,0], locations[:,i_hrtita,1])
-
+    if any('L_' in name or 'R_' in name for name in node_names):
+        sides = ['L_','R_']
+        for side in sides:
+            # get median neck location
+            i_neck = next((i for i, name in enumerate(node_names) if side + 'neck' in name), None)
+            neck_fix = np.median(locations[:,i_neck,:], axis=0)
+            
+            # get relative position to neck
+            for i_k, keypoint in enumerate(node_names):
+                if side in keypoint:
+                    for i_d, (d, neck_d) in enumerate(zip(["x","y"], neck_fix)):
+                        # add raw location to dataframe
+                        beh_df[f"{keypoint}_{d}"] = locations[:,i_k, i_d]
+                        
+            try:
+                # get median stripe1 location
+                i_stripe = next((i for i, name in enumerate(node_names) if side + 'stripe1' in name), None)
+                print(i_stripe)
+                print(locations.shape)
+                print(node_names)
+                stripe_fix = np.median(locations[:,i_stripe,:], axis=0)
+                # Calculate the angle to rotate stripe1 to be horizontal to neck
+                dx = stripe_fix[0] - neck_fix[0]
+                dy = stripe_fix[1] - neck_fix[1]
+                print('ok till here')
+                angle = -np.arctan2(dy, dx)  # Negative to rotate counterclockwise
+        
+                # rotate to make stripe1 horizontal
+                for i_k, keypoint in enumerate(node_names):
+                    if side in keypoint:                     
+                         
+                        # Apply rotation to the relative coordinates
+                        x_rel = beh_df[f"{keypoint}_x_rel"]
+                        y_rel = beh_df[f"{keypoint}_y_rel"]
+                        beh_df[f"{keypoint}_x_rot"], beh_df[f"{keypoint}_y_rot"] = rotate_point(x_rel, y_rel, angle)
+            except:
+                print('could not rotate neck-stripe1')
+    else:
+        # get median neck location
+        i_neck = next((i for i, name in enumerate(node_names) if 'neck' in name), None)
+        neck_fix = np.median(locations[:,i_neck,:], axis=0)
+            
+        # get relative position to neck
+        for i_k, keypoint in enumerate(node_names):
+            for i_d, (d, neck_d) in enumerate(zip(["x","y"], neck_fix)):
+                # add raw location to dataframe
+                beh_df[f"{keypoint}_{d}"] = locations[:,i_k, i_d]
+    
+    
+         
+    # save
     if out_dir is not None:
         beh_df.to_pickle(out_dir)
 
