@@ -82,7 +82,7 @@ def read_sleap_output(trial_dir, med_filt=9, sigma_gauss=5):
     for i_k in range(n_keypoints):
         for i_d in range(n_dim):
             locations[:,i_k, i_d] = fill_nans_with_previous(locations[:,i_k, i_d])
-            locations[:,i_k, i_d] = gaussian_filter1d(median_filter(locations[:,i_k, i_d], size=med_filt), sigma=sigma_gauss)
+            #locations[:,i_k, i_d] = gaussian_filter1d(median_filter(locations[:,i_k, i_d], size=med_filt), sigma=sigma_gauss)
 
     return locations, node_names
 
