@@ -229,7 +229,7 @@ class TaskManager():
             while self.n_todos:
                 success = self.execute_next_task()
                 if not success:
-                    print('Waiting?')
+                    print('Waiting because of error - Check that sync file exists in folder.')
                     # if all tasks are pending wait before checking from start again
                     time.sleep(self.t_wait_s)
             self.clean_exit = True
