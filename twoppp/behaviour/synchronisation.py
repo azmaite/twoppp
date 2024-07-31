@@ -382,10 +382,12 @@ def get_processed_lines(sync_file,
     >>> processed_lines = utils2p.synchronization.get_processed_lines(sync_file, sync_metadata_file, metadata_file, seven_camera_metadata_file)
     """
     processed_lines = {}
-    processed_lines["Capture On"], processed_lines[
-        "Frame Counter"] = utils2p.synchronization.get_lines_from_sync_file(
+    try:
+        processed_lines["Capture On"], processed_lines["Frame Counter"] = utils2p.synchronization.get_lines_from_sync_file(
             sync_file, ["Capture On", "Frame Counter"])
-
+    except:
+        processed_lines["Capture On"], processed_lines["Frame Counter"] = utils2p.synchronization.get_lines_from_sync_file(
+            sync_file, ["CaptureOn", "FrameCounter"])
     try:
         # For microscope 1
         if read_cams:
